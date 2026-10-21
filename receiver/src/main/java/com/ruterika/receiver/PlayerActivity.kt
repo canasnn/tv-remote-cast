@@ -103,9 +103,10 @@ class PlayerActivity : ComponentActivity() {
     private var subtitleOffsetMs = 0L
     /** Up/Down moved into the on-screen buttons; until they hide, the arrows move between them. */
     private var controlsFocused = false
-    /** Seeking in a row, for the "+15s" total on screen. */
+    /** Relative seeks in a row: where the run started, its total, and the seek waiting to run. */
+    private var seekRunStartMs = 0L
     private var seekRunMs = 0L
-    private var lastSeekAt = 0L
+    private var pendingSeekJob: kotlinx.coroutines.Job? = null
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -220,14 +221,14 @@ class PlayerActivity : ComponentActivity() {
     private fun onCommand(message: Message) {
         val p = player
         when (message) {
-            is Load -> load(message)
+            is Load -> { pendingSeekJob?.cancel(); load(message) }
             is Enqueue -> p?.addMediaSources(message.items.map(::toSource))?.also { items = items + message.items }
             is Play -> p?.let(::resume)
             is Pause -> p?.pause()
             is Stop -> finish()
             is Next -> p?.takeIf { it.hasNextMediaItem() }?.seekToNextMediaItem()
             is Previous -> p?.seekToPreviousMediaItem()
-            is Seek -> p?.seekTo(message.positionMs)
+            is Seek -> { pendingSeekJob?.cancel(); p?.seekTo(message.positionMs) }
             is SeekBy -> seekBy(message.deltaMs)
             is SetSpeed -> p?.playbackParameters = PlaybackParameters(message.speed.coerceIn(0.25f, 4f))
             is SelectTrack -> selectTrack(message)
@@ -261,17 +262,38 @@ class PlayerActivity : ComponentActivity() {
         p.play()
     }
 
+    /**
+     * Relative seek (remote arrows, the phone's skip buttons). Presses in a row add up, like
+     * YouTube: the total and the target time show on screen right away, and the player seeks
+     * once, shortly after the last press, instead of reloading for every press.
+     */
     private fun seekBy(deltaMs: Long) {
         val p = player ?: return
         if (!p.isCurrentMediaItemSeekable) return
         val duration = p.duration.takeIf { it != C.TIME_UNSET } ?: Long.MAX_VALUE
-        p.seekTo((p.currentPosition + deltaMs).coerceIn(0L, duration))
-        // Presses in a row add up on screen (+5s, +10s, +15s…), like YouTube; a change of direction starts over.
-        val now = android.os.SystemClock.uptimeMillis()
-        seekRunMs = if (now - lastSeekAt < SEEK_RUN_GAP_MS && (seekRunMs > 0) == (deltaMs > 0)) seekRunMs + deltaMs else deltaMs
-        lastSeekAt = now
+        val running = pendingSeekJob?.isActive == true && (seekRunMs > 0) == (deltaMs > 0)
+        if (!running) {
+            pendingSeekJob?.cancel()
+            seekRunStartMs = p.currentPosition
+            seekRunMs = 0L
+        }
+        seekRunMs += deltaMs
+        val target = (seekRunStartMs + seekRunMs).coerceIn(0L, duration)
         val seconds = seekRunMs / 1000
-        showToast(if (seconds > 0) "+${seconds}s" else "${seconds}s")
+        showToast((if (seconds > 0) "+${seconds}s" else "${seconds}s") + " · " + formatTime(target))
+        pendingSeekJob?.cancel()
+        pendingSeekJob = lifecycleScope.launch {
+            delay(SEEK_COMMIT_DELAY_MS)
+            player?.seekTo(target)
+        }
+    }
+
+    private fun formatTime(ms: Long): String {
+        val total = ms / 1000
+        val h = total / 3600
+        val m = (total % 3600) / 60
+        val sec = total % 60
+        return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
     }
 
     private fun load(load: Load) {
@@ -308,8 +330,10 @@ class PlayerActivity : ComponentActivity() {
             .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             .setEnableDecoderFallback(true)
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(15_000, 60_000, 2_500, 5_000)
-            .setBackBuffer(10_000, false)
+            // Starts again quickly after a seek outside the buffer (1.5 s of data, 3 s after a stall).
+            .setBufferDurationsMs(15_000, 60_000, 1_500, 3_000)
+            // The last 30 s stay in memory from their keyframe: seeking back within them needs no download.
+            .setBackBuffer(30_000, true)
             .build()
         return ExoPlayer.Builder(this, renderers)
             .setSeekBackIncrementMs(SEEK_STEP_MS)
@@ -698,8 +722,8 @@ class PlayerActivity : ComponentActivity() {
     companion object {
         private const val STATUS_INTERVAL_MS = 1000L
         private const val SEEK_STEP_MS = 5_000L
-        /** Seeks closer together than this add up in the on-screen total. */
-        private const val SEEK_RUN_GAP_MS = 1_500L
+        /** Seek this long after the last arrow press (presses in between add up). */
+        private const val SEEK_COMMIT_DELAY_MS = 450L
         private const val SLIDESHOW_MS = 5_000L
         private const val MANUAL_IMAGE_MS = 6 * 60 * 60 * 1000L
         private const val INTRO_MIN_START_MS = 5_000L
