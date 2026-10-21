@@ -56,7 +56,11 @@ No Chromecast and no ADB needed: the remote uses the TV's own remote protocol, a
 
 1. Download `TV-Remote-and-Cast.apk` and `TV-Receiver.apk` from the [latest release](https://github.com/canasnn/tv-remote-cast/releases/latest).
 2. **Phone:** open `TV-Remote-and-Cast.apk` and allow installing from your browser or file manager.
-3. **TV (once):** install `TV-Receiver.apk` on the TV. The easiest way is the free *Downloader* app from the TV's Play Store: open it, enter the link of `TV-Receiver.apk` from the release page and install. You can also use `adb install TV-Receiver.apk`.
+3. **TV (once):** install `TV-Receiver.apk` on the TV. The easiest way is the free *Downloader* app from the TV's Play Store: open it, enter this link and install:
+   ```
+   github.com/canasnn/tv-remote-cast/releases/latest/download/TV-Receiver.apk
+   ```
+   You can also use `adb install TV-Receiver.apk`.
 4. Open the phone app, pick your TV and enter the code the TV shows. Done: from now on the phone starts the receiver by itself.
 
 The phone and the TV need to be on the same Wi-Fi.
