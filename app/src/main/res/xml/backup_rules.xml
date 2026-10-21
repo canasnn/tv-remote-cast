@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Android auto backup (API 23-30). Everything in files/ and shared prefs is
+   backed up, including files/cast/settings.json and files/cast/library.json
+   (cast settings, bookmarks, history, playlists, IPTV lists). Caches are never
+   backed up; downloaded subtitles, the local media server's tokens and files
+   received from other apps are left out.
+   API 31+ uses data_extraction_rules.xml (same rules).
+-->
+<full-backup-content>
+    <exclude domain="file" path="cast/subtitles/" />
+    <exclude domain="file" path="cast/media_tokens.json" />
+    <exclude domain="file" path="cast/settings.json.tmp" />
+    <exclude domain="file" path="cast/library.json.tmp" />
+    <exclude domain="file" path="incoming/" />
+    <exclude domain="sharedpref" path="local_media.xml" />
+</full-backup-content>

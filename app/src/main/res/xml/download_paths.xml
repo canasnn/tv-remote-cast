@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Downloads on Android 9 and older (app-specific external storage). -->
+    <external-files-path name="downloads" path="Download/" />
+</paths>

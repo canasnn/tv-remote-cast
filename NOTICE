@@ -1,0 +1,35 @@
+TV Remote & Cast
+Copyright 2026 canasnn
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE),
+except where noted below.
+
+Parts of the remote control code are derived from open-source code licensed
+under the Apache License, Version 2.0, and were modified for this product.
+
+The colour palette code in app/src/main/java/com/canasnn/tvremote/ui/theme/palette
+comes from MusicYou (https://github.com/Kyant0/MusicYou), Copyright Kyant0,
+licensed under the Apache License, Version 2.0.
+
+Connect SDK (ConnectSDK/), Copyright LG Electronics, licensed under the Apache
+License, Version 2.0.
+
+The TV receiver (receiver/) includes Jellyfin's Media3 FFmpeg decoder
+(https://github.com/jellyfin/jellyfin-androidx-media), licensed under the GNU
+General Public License v3.0, and FFmpeg. The receiver as distributed is
+therefore covered by the GNU General Public License v3.0.
+
+Other libraries:
+- AndroidX, Jetpack Compose, Media3, Material Components, Gson,
+  Protocol Buffers runtime (BSD 3-Clause) - Google
+- Kotlin, kotlinx.coroutines, kotlinx.serialization, Ktor - JetBrains
+  (Apache License 2.0)
+- OkHttp, Retrofit - Square (Apache License 2.0)
+- Coil (Apache License 2.0), Timber (Apache License 2.0)
+- RxJava, RxAndroid (Apache License 2.0)
+- Bouncy Castle (MIT)
+- Java-WebSocket (MIT)
+- NanoHTTPD (BSD 3-Clause)
+
+Ad-block lists (HaGeZi, OISD, StevenBlack) are downloaded from their
+publishers at runtime and are not part of this product.

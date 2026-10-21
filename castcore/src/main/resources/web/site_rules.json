@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "noDetect": {
+    "contains": [
+      "/cdn-cgi/challenge-platform/",
+      "/recaptcha/",
+      "/turnstile/",
+      "/captcha",
+      "/areyouhuman",
+      "challenges.cloudflare.com",
+      "accounts.google.com",
+      "google.com/o/oauth2",
+      "google.com/signin",
+      "appleid.apple.com",
+      "login.microsoftonline.com",
+      "login.live.com",
+      "facebook.com/login",
+      "facebook.com/dialog/oauth",
+      "/oauth/authorize",
+      "/oauth2/authorize"
+    ],
+    "endsWith": [
+      "hcaptcha.com",
+      "arkoselabs.com",
+      "funcaptcha.com",
+      "gstatic.com",
+      "fonts.googleapis.com"
+    ]
+  },
+  "ignore": [
+    {
+      "name": "Player stubs and autoplay probes",
+      "match": {
+        "type": "any",
+        "rules": [
+          {
+            "field": "urlLowercase",
+            "function": "contains",
+            "alternatives": [
+              "/res/i/video/stub.mp4",
+              "/vi/p3/black.mp4",
+              "canautoplayinline",
+              "videojs.com/html5-video-support",
+              "/autoplay-test.mp4",
+              "/blank.mp4",
+              "/silence.mp3",
+              "/silent.mp3"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Instagram DASH pieces",
+      "match": {
+        "type": "all",
+        "rules": [
+          { "field": "host", "function": "endsWith", "alternatives": ["cdninstagram.com", "fbcdn.net"] },
+          { "field": "urlLowercase", "function": "contains", "alternatives": ["_dashinit.mp4", "bytestart="] }
+        ]
+      }
+    },
+    {
+      "name": "Separate webm audio/video streams on vk and ok",
+      "match": {
+        "type": "all",
+        "rules": [
+          { "field": "pageHost", "function": "endsWith", "alternatives": ["vk.com", "vkvideo.ru", "ok.ru"] },
+          { "field": "urlLowercase", "function": "contains", "value": ".webm" }
+        ]
+      }
+    }
+  ],
+  "headers": [
+    {
+      "name": "No Referer for LinkedIn and X media",
+      "match": { "rules": [ { "field": "host", "function": "endsWith", "alternatives": [".licdn.com", ".twimg.com"] } ] },
+      "remove": ["Referer"]
+    },
+    {
+      "name": "CDNs that check Origin",
+      "match": { "rules": [ { "field": "host", "function": "endsWith", "alternatives": ["nuuuppp.cloud"] } ] },
+      "originFromReferer": true
+    },
+    {
+      "name": "CDNs that need Accept-Language",
+      "match": {
+        "rules": [
+          { "field": "host", "function": "endsWith", "alternatives": ["akamai-video-content.com", "fusevideo.io", "videoslala.com"] },
+          { "field": "referrer", "function": "contains", "alternatives": ["thrfive.io", "veev.to"] }
+        ]
+      },
+      "acceptLanguage": true
+    }
+  ],
+  "keepList": {
+    "contains": ["hianime.to", "pstream.mov/media", "streamingcommunity."]
+  },
+  "sandboxFix": {
+    "contains": ["thetvapps.net", "tvapp1.com", "ppv.st"]
+  },
+  "interventions": [
+    {
+      "name": "Kaltura HLS manifests",
+      "match": {
+        "type": "all",
+        "rules": [
+          { "field": "urlLowercase", "function": "contains", "value": "/playmanifest/" },
+          { "field": "urlLowercase", "function": "contains", "value": "/format/applehttp" }
+        ]
+      },
+      "intervention": { "type": "mime-type-assign-mpegurl" }
+    },
+    {
+      "name": "Kaltura DASH manifests",
+      "match": {
+        "type": "all",
+        "rules": [
+          { "field": "urlLowercase", "function": "contains", "value": "/playmanifest/" },
+          { "field": "urlLowercase", "function": "contains", "value": "/format/mpegdash" }
+        ]
+      },
+      "intervention": { "type": "mime-type-assign", "params": { "mime-type": "application/dash+xml" } }
+    },
+    {
+      "name": "HLS playlists disguised as text files",
+      "match": {
+        "type": "all",
+        "rules": [
+          { "field": "path", "function": "matchesRegex", "value": "(?i)/(master|index|playlist|chunklist|manifest)[^/]*\\.(txt|m3u8\\.txt)$" },
+          { "field": "urlLowercase", "function": "contains", "alternatives": ["/hls", "hls/", "/stream"] }
+        ]
+      },
+      "intervention": { "type": "mime-type-assign-mpegurl" }
+    },
+    {
+      "name": "Wistia video deliveries",
+      "match": {
+        "type": "all",
+        "rules": [
+          { "field": "host", "function": "endsWith", "alternatives": ["wistia.com", "wistia.net"] },
+          { "field": "path", "function": "matchesRegex", "value": "^/deliveries/[0-9a-f]+\\.bin$" }
+        ]
+      },
+      "intervention": { "type": "mime-type-assign", "params": { "mime-type": "video/mp4" } }
+    }
+  ],
+  "adRedirect": [
+    "path::contains::/click;;qp::setContainsAnyIgnoreCase::[zoneid,campaignid,bannerid,click_id,clickid,subid,pubid]",
+    "qp::setContainsAllIgnoreCase::[zoneid,campaignid]",
+    "path::matchesRegex::^/(afu|aff_c|track|go)\\.php$;;qp::setContainsAnyIgnoreCase::[zoneid,offer_id,aff_id,campaign]",
+    "qp::setContainsAllIgnoreCase::[var,ymid]",
+    "path::contains::/redirect;;qp::setContainsAllIgnoreCase::[campaign,zone]"
+  ],
+  "userAgents": []
+}

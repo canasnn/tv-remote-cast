@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Auto backup and device transfer (API 31+). Same rules as backup_rules.xml:
+   files/cast/settings.json and files/cast/library.json are kept; caches,
+   downloaded subtitles, media server tokens and received files are not.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="cast/subtitles/" />
+        <exclude domain="file" path="cast/media_tokens.json" />
+        <exclude domain="file" path="cast/settings.json.tmp" />
+        <exclude domain="file" path="cast/library.json.tmp" />
+        <exclude domain="file" path="incoming/" />
+        <exclude domain="sharedpref" path="local_media.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="cast/subtitles/" />
+        <exclude domain="file" path="cast/media_tokens.json" />
+        <exclude domain="file" path="cast/settings.json.tmp" />
+        <exclude domain="file" path="cast/library.json.tmp" />
+        <exclude domain="file" path="incoming/" />
+        <exclude domain="sharedpref" path="local_media.xml" />
+    </device-transfer>
+</data-extraction-rules>
