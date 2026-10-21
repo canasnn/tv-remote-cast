@@ -23,7 +23,6 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -330,8 +329,9 @@ class PlayerActivity : ComponentActivity() {
             .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             .setEnableDecoderFallback(true)
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            // Starts again quickly after a seek outside the buffer (1.5 s of data, 3 s after a stall).
-            .setBufferDurationsMs(15_000, 60_000, 1_500, 3_000)
+            // Keeps 50 s ahead topped up (min = max), so forward seeks land in the buffer, and
+            // starts again quickly after a seek outside it (1 s of data, 2 s after a stall).
+            .setBufferDurationsMs(50_000, 50_000, 1_000, 2_000)
             // The last 30 s stay in memory from their keyframe: seeking back within them needs no download.
             .setBackBuffer(30_000, true)
             .build()
@@ -439,10 +439,9 @@ class PlayerActivity : ComponentActivity() {
      */
     private fun sourceFactory(headers: Map<String, String>): DefaultMediaSourceFactory {
         val userAgent = headers.entries.firstOrNull { it.key.equals("User-Agent", true) }?.value ?: DEFAULT_USER_AGENT
-        val http = DefaultHttpDataSource.Factory()
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(15_000)
-            .setReadTimeoutMs(20_000)
+        // One shared OkHttp client: the connection stays open between requests, so the request
+        // after a seek doesn't pay for a new connection (and TLS handshake) every time.
+        val http = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(httpClient)
             .setUserAgent(userAgent)
             .setDefaultRequestProperties(headers.filterKeys { !it.equals("User-Agent", true) })
         return DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http))
@@ -722,6 +721,16 @@ class PlayerActivity : ComponentActivity() {
     companion object {
         private const val STATUS_INTERVAL_MS = 1000L
         private const val SEEK_STEP_MS = 5_000L
+
+        /** Shared by every stream of the process, so connections are reused. */
+        private val httpClient: okhttp3.OkHttpClient by lazy {
+            okhttp3.OkHttpClient.Builder()
+                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build()
+        }
         /** Seek this long after the last arrow press (presses in between add up). */
         private const val SEEK_COMMIT_DELAY_MS = 450L
         private const val SLIDESHOW_MS = 5_000L

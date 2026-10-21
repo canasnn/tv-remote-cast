@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.receiver.media3.ui)
     // rtsp:// streams
     implementation(libs.receiver.media3.exoplayer.rtsp)
+    implementation(libs.receiver.media3.datasource.okhttp)
     // FFmpeg audio decoder: AC3, E-AC3, DTS, TrueHD… on TVs without those decoders.
     implementation(libs.jellyfin.media3.ffmpeg)
 
