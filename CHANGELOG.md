@@ -2,6 +2,18 @@
 
 All notable changes to **TV Remote & Cast** are documented in this file.
 
+## [1.0.1] - 2026-10-21
+
+### TV receiver
+- Remote keys work like YouTube on a TV: Left/Right seek 5 seconds (hold to keep seeking), OK plays and pauses, Up/Down go to the on-screen buttons, Back closes them first.
+- Presses in a row add up (+15s and the target time on screen) and the player seeks once, instead of reloading for every press.
+- Much smoother seeking: 50 seconds ahead are kept loaded, the last 30 seconds stay in memory, playback restarts after 1 second of data, and connections are reused.
+- Fixed a crash of the release build on some TVs.
+
+### Phone app
+- Keyboard: no lost characters when typing fast, deleting or mixing digits and letters.
+- The TV volume no longer shows 0% before the TV has reported it.
+
 ## [1.0.0] - 2026-10-21
 
 First release.
