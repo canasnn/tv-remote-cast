@@ -101,6 +101,11 @@ class PlayerActivity : ComponentActivity() {
     /** Live subtitle timing of this session (positive = later), read by [SubtitleOffsetRenderer]. */
     @Volatile
     private var subtitleOffsetMs = 0L
+    /** Up/Down moved into the on-screen buttons; until they hide, the arrows move between them. */
+    private var controlsFocused = false
+    /** Seeking in a row, for the "+15s" total on screen. */
+    private var seekRunMs = 0L
+    private var lastSeekAt = 0L
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -111,7 +116,11 @@ class PlayerActivity : ComponentActivity() {
             setShowNextButton(true)
             setShowPreviousButton(true)
             controllerShowTimeoutMs = 3000
-            // D-pad on the seek bar moves 10 s per press.
+            // Controls hidden: the arrows are back to seeking (see dispatchKeyEvent).
+            setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
+                if (visibility != View.VISIBLE) controlsFocused = false
+            })
+            // D-pad on the seek bar moves one seek step per press.
             findViewById<androidx.media3.ui.DefaultTimeBar>(androidx.media3.ui.R.id.exo_progress)?.setKeyTimeIncrement(SEEK_STEP_MS)
         }
         toastView = findViewById(R.id.toast)
@@ -150,28 +159,60 @@ class PlayerActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    /**
+     * Remote keys work like YouTube on a TV: Left/Right seek, OK plays/pauses, Up/Down go to the
+     * on-screen buttons (only then do the arrows move between them), Back closes the buttons
+     * first and the player after.
+     */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val p = player
+        val down = event.action == KeyEvent.ACTION_DOWN
         if (event.keyCode == KeyEvent.KEYCODE_BACK && playerView.isControllerFullyVisible) {
             if (event.action == KeyEvent.ACTION_UP) playerView.hideController()
             return true
         }
-        if (p != null && event.action == KeyEvent.ACTION_DOWN && !playerView.isControllerFullyVisible) {
+        if (p != null && !controlsFocused) {
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                    if (p.isPlaying) p.pause() else resume(p)
-                    playerView.showController()
+                    if (down && event.repeatCount == 0) {
+                        if (p.isPlaying) p.pause() else resume(p)
+                        playerView.showController()
+                    }
                     return true
                 }
-                KeyEvent.KEYCODE_DPAD_LEFT -> if (p.isCurrentMediaItemSeekable) { seekBy(-SEEK_STEP_MS); return true }
-                KeyEvent.KEYCODE_DPAD_RIGHT -> if (p.isCurrentMediaItemSeekable) { seekBy(SEEK_STEP_MS); return true }
+                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> if (p.isCurrentMediaItemSeekable) {
+                    if (down) {
+                        val step = holdSeekStep(event.repeatCount)
+                        if (step > 0) seekBy(if (event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT) -step else step)
+                        playerView.showController()
+                    }
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    if (down) {
+                        controlsFocused = true
+                        playerView.showController()
+                    }
+                    return true
+                }
                 KeyEvent.KEYCODE_CHANNEL_UP, KeyEvent.KEYCODE_PAGE_UP ->
-                    if (p.hasNextMediaItem()) { p.seekToNextMediaItem(); return true }
+                    if (down && p.hasNextMediaItem()) { p.seekToNextMediaItem(); return true }
                 KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_PAGE_DOWN ->
-                    if (p.hasPreviousMediaItem()) { p.seekToPreviousMediaItem(); return true }
+                    if (down && p.hasPreviousMediaItem()) { p.seekToPreviousMediaItem(); return true }
             }
         }
         return playerView.dispatchKeyEvent(event) || super.dispatchKeyEvent(event)
+    }
+
+    /**
+     * Seek of one Left/Right key event: a press is one step; held down (key repeats arrive about
+     * 20 times a second) it seeks on every other repeat and speeds up after a few seconds.
+     */
+    private fun holdSeekStep(repeatCount: Int): Long = when {
+        repeatCount == 0 -> SEEK_STEP_MS
+        repeatCount % 2 == 1 -> 0L
+        repeatCount < 40 -> SEEK_STEP_MS
+        else -> SEEK_STEP_MS * 3
     }
 
     // ── Commands ────────────────────────────────────────────────────────────
@@ -225,7 +266,11 @@ class PlayerActivity : ComponentActivity() {
         if (!p.isCurrentMediaItemSeekable) return
         val duration = p.duration.takeIf { it != C.TIME_UNSET } ?: Long.MAX_VALUE
         p.seekTo((p.currentPosition + deltaMs).coerceIn(0L, duration))
-        val seconds = deltaMs / 1000
+        // Presses in a row add up on screen (+5s, +10s, +15s…), like YouTube; a change of direction starts over.
+        val now = android.os.SystemClock.uptimeMillis()
+        seekRunMs = if (now - lastSeekAt < SEEK_RUN_GAP_MS && (seekRunMs > 0) == (deltaMs > 0)) seekRunMs + deltaMs else deltaMs
+        lastSeekAt = now
+        val seconds = seekRunMs / 1000
         showToast(if (seconds > 0) "+${seconds}s" else "${seconds}s")
     }
 
@@ -267,6 +312,8 @@ class PlayerActivity : ComponentActivity() {
             .setBackBuffer(10_000, false)
             .build()
         return ExoPlayer.Builder(this, renderers)
+            .setSeekBackIncrementMs(SEEK_STEP_MS)
+            .setSeekForwardIncrementMs(SEEK_STEP_MS)
             .setMediaSourceFactory(sourceFactory(emptyMap()))
             .setLoadControl(loadControl)
             .setAudioAttributes(
@@ -650,7 +697,9 @@ class PlayerActivity : ComponentActivity() {
 
     companion object {
         private const val STATUS_INTERVAL_MS = 1000L
-        private const val SEEK_STEP_MS = 10_000L
+        private const val SEEK_STEP_MS = 5_000L
+        /** Seeks closer together than this add up in the on-screen total. */
+        private const val SEEK_RUN_GAP_MS = 1_500L
         private const val SLIDESHOW_MS = 5_000L
         private const val MANUAL_IMAGE_MS = 6 * 60 * 60 * 1000L
         private const val INTRO_MIN_START_MS = 5_000L

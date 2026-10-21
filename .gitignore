@@ -40,3 +40,4 @@ captures/
 /app/release/
 /receiver/release/
 *.jar.cache/
+.kotlin/

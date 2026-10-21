@@ -12,8 +12,8 @@ android {
         applicationId = "com.canasnn.tvremote"
         minSdk = 24
         targetSdk = 36
-        versionCode = 20
-        versionName = "1.0.0"
+        versionCode = 21
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
